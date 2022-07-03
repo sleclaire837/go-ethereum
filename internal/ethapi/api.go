@@ -609,12 +609,13 @@ func NewBlockChainAPI(b Backend) *BlockChainAPI {
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current Ethereum chain config.
-func (api *BlockChainAPI) ChainId() (*hexutil.Big, error) {
-	// if current block is at or past the EIP-155 replay-protection fork block, return chainID from config
-	if config := api.b.ChainConfig(); config.IsEIP155(api.b.CurrentBlock().Number()) {
-		return (*hexutil.Big)(config.ChainID), nil
-	}
-	return nil, fmt.Errorf("chain not synced beyond EIP-155 replay-protection fork block")
+//
+// Note, this method does not conform to EIP-695 because the configured chain ID is always
+// returned, regardless of the current head block. We used to return an error when the chain
+// wasn't synced up to a block where EIP-155 is enabled, but this behavior caused issues
+// in CL clients.
+func (api *BlockChainAPI) ChainId() *hexutil.Big {
+	return (*hexutil.Big)(api.b.ChainConfig().ChainID)
 }
 
 // BlockNumber returns the block number of the chain head.
@@ -1283,6 +1284,11 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
 	switch tx.Type() {
+	case types.LegacyTxType:
+		// if a legacy transaction has an EIP-155 chain id, include it explicitly
+		if id := tx.ChainId(); id.Sign() == 0 {
+			result.ChainID = (*hexutil.Big)(id)
+		}
 	case types.AccessListTxType:
 		al := tx.AccessList()
 		result.Accesses = &al
