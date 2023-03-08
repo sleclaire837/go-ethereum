@@ -1,4 +1,4 @@
-// Copyright 2020 The go-ethereum Authors
+// Copyright 2023 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,31 +14,27 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-//go:build !ios && !js
-// +build !ios,!js
+package apitypes
 
-package metrics
+import "testing"
 
-import (
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/shirou/gopsutil/cpu"
-)
-
-// ReadCPUStats retrieves the current CPU stats.
-func ReadCPUStats(stats *CPUStats) {
-	// passing false to request all cpu times
-	timeStats, err := cpu.Times(false)
-	if err != nil {
-		log.Error("Could not read cpu stats", "err", err)
-		return
+func TestIsPrimitive(t *testing.T) {
+	// Expected positives
+	for i, tc := range []string{
+		"int24", "int24[]", "uint88", "uint88[]", "uint", "uint[]", "int256", "int256[]",
+		"uint96", "uint96[]", "int96", "int96[]", "bytes17[]", "bytes17",
+	} {
+		if !isPrimitiveTypeValid(tc) {
+			t.Errorf("test %d: expected '%v' to be a valid primitive", i, tc)
+		}
 	}
-	if len(timeStats) == 0 {
-		log.Error("Empty cpu stats")
-		return
+	// Expected negatives
+	for i, tc := range []string{
+		"int257", "int257[]", "uint88 ", "uint88 []", "uint257", "uint-1[]",
+		"uint0", "uint0[]", "int95", "int95[]", "uint1", "uint1[]", "bytes33[]", "bytess",
+	} {
+		if isPrimitiveTypeValid(tc) {
+			t.Errorf("test %d: expected '%v' to not be a valid primitive", i, tc)
+		}
 	}
-	// requesting all cpu times will always return an array with only one time stats entry
-	timeStat := timeStats[0]
-	stats.GlobalTime = timeStat.User + timeStat.Nice + timeStat.System
-	stats.GlobalWait = timeStat.Iowait
-	stats.LocalTime = getProcessCPUTime()
 }
